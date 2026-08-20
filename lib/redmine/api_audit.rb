@@ -29,7 +29,7 @@ module Redmine
     end
 
     def self.default_logger
-      logger = Logger.new(Rails.root.join('log', 'api_audit.log'))
+      logger = Logger.new(Rails.root.join('log', 'api_audit.log'), 'weekly')
       logger.formatter = proc {|_severity, _time, _progname, msg| "#{msg}\n"}
       logger
     end
