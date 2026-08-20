@@ -814,6 +814,22 @@ class MyControllerTest < Redmine::ControllerTest
     assert_select 'pre', User.find(2).api_key
   end
 
+  def test_account_should_link_to_personal_access_tokens_when_rest_api_is_enabled
+    with_settings :rest_api_enabled => '1' do
+      get :account
+      assert_response :success
+      assert_select 'a[href="/my/personal_access_tokens"]', :minimum => 1
+    end
+  end
+
+  def test_account_should_not_link_to_personal_access_tokens_when_rest_api_is_disabled
+    with_settings :rest_api_enabled => '0' do
+      get :account
+      assert_response :success
+      assert_select 'a[href="/my/personal_access_tokens"]', :count => 0
+    end
+  end
+
   def test_reset_api_key_with_existing_key
     @previous_token_value = User.find(2).api_key # Will generate one if it's missing
     post :reset_api_key

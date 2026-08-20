@@ -65,7 +65,9 @@ module RedmineApp
     config.encoding = "utf-8"
 
     # Configure sensitive parameters which will be filtered from the log file.
-    config.filter_parameters += [:password]
+    # The exact-match regexp filters the API key passed as ?key=... without
+    # over-filtering unrelated parameters such as "keywords".
+    config.filter_parameters += [:password, /\Akey\z/]
 
     config.action_mailer.perform_deliveries = false
 

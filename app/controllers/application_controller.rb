@@ -62,6 +62,9 @@ class ApplicationController < ActionController::Base
   end
 
   before_action :session_expiration, :user_setup, :check_if_login_required, :set_localization, :check_password_change, :check_twofa_activation
+  # Wraps the whole filter chain so that denied requests (halted by a
+  # before_action) are audited too
+  prepend_around_action :log_api_request
   after_action :record_project_usage
 
   rescue_from ::Unauthorized, :with => :deny_access
@@ -129,13 +132,19 @@ class ApplicationController < ActionController::Base
     end
     if user.nil? && Setting.rest_api_enabled? && accept_api_auth?
       if (key = api_key_from_request)
-        # Use API key
-        user = User.find_by_api_key(key)
+        # Personal access token or legacy API key
+        if (personal_access_token = PersonalAccessToken.find_active(key))
+          user = user_from_personal_access_token(personal_access_token)
+          @api_auth_credential = "pat:#{personal_access_token.id}"
+        elsif (user = User.find_by_api_key(key))
+          @api_auth_credential = 'api_key'
+        end
       elsif access_token = Doorkeeper.authenticate(request)
         # Oauth
         if access_token.accessible?
           user = User.active.find_by_id(access_token.resource_owner_id)
           user.oauth_scope = access_token.scopes.all.map(&:to_sym)
+          @api_auth_credential = "oauth:#{access_token.id}"
         else
           doorkeeper_render_error
         end
@@ -149,7 +158,14 @@ class ApplicationController < ActionController::Base
             return
           end
 
-          user ||= User.find_by_api_key(username)
+          if user.nil?
+            if (personal_access_token = PersonalAccessToken.find_active(username))
+              user = user_from_personal_access_token(personal_access_token)
+              @api_auth_credential = "pat:#{personal_access_token.id}"
+            elsif (user = User.find_by_api_key(username))
+              @api_auth_credential = 'api_key'
+            end
+          end
         end
         if user && user.must_change_password?
           render_error :message => 'You must change your password', :status => 403
@@ -722,6 +738,48 @@ class ApplicationController < ActionController::Base
 
   def api_request?
     %w(xml json).include? params[:format]
+  end
+
+  # Writes a structured audit line for requests authenticated with an API
+  # credential (personal access token, legacy API key or OAuth token).
+  # The request path is logged without the query string, which may carry
+  # a plaintext key.
+  def log_api_request
+    yield
+  ensure
+    # When an exception is in flight the client will receive a 500 from the
+    # exception-handling middleware, not the status currently on response
+    write_api_audit_entry($! ? 500 : response.status)
+  end
+
+  def write_api_audit_entry(status)
+    return unless @api_auth_credential
+    return unless Setting.api_audit_logging_enabled?
+
+    Redmine::ApiAudit.log(
+      'at' => Time.now.utc.iso8601,
+      'user_id' => User.current.id,
+      'user' => User.current.login,
+      'credential' => @api_auth_credential,
+      'method' => request.request_method,
+      'path' => request.path,
+      'ip' => request.remote_ip,
+      'status' => status
+    )
+  rescue => e
+    # Audit logging must degrade silently: a full disk or unwritable log
+    # directory should not turn into API failures (we run inside an ensure,
+    # so raising here would also mask the original response or exception)
+    logger&.error("Unable to write API audit entry: #{e.class}: #{e.message}")
+  end
+
+  # Returns the user authenticated by the given personal access token,
+  # restricted to the token's scopes when it has any (reusing the OAuth
+  # scope enforcement in User#allowed_to? and User#admin?)
+  def user_from_personal_access_token(token)
+    user = token.user
+    user.oauth_scope = token.scope_list if token.scopes.present?
+    user
   end
 
   # Returns the API key present in the request
