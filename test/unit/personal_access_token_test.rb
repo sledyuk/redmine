@@ -130,6 +130,41 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
     assert_not_nil token.reload.last_used_on
   end
 
+  test "import_legacy_api_tokens! should convert legacy api keys to hashed tokens" do
+    user = users(:users_003)
+    legacy = Token.create!(:user => user, :action => 'api')
+    legacy_value = legacy.value
+
+    assert_difference 'PersonalAccessToken.count', 1 do
+      assert_difference 'Token.where(:action => "api").count', -1 do
+        PersonalAccessToken.import_legacy_api_tokens!
+      end
+    end
+
+    imported = PersonalAccessToken.order(:id => :desc).first
+    assert_equal user, imported.user
+    assert_equal Digest::SHA256.hexdigest(legacy_value), imported.token_digest
+    assert_equal 365.days.from_now.to_date, imported.expires_on
+    # The same key keeps authenticating after the import
+    assert_equal user, PersonalAccessToken.find_active_user(legacy_value)
+  end
+
+  test "import_legacy_api_tokens! should be idempotent" do
+    Token.create!(:user => users(:users_003), :action => 'api')
+    PersonalAccessToken.import_legacy_api_tokens!
+    assert_no_difference 'PersonalAccessToken.count' do
+      PersonalAccessToken.import_legacy_api_tokens!
+    end
+  end
+
+  test "import_legacy_api_tokens! should honor the max lifetime setting" do
+    Token.create!(:user => users(:users_003), :action => 'api')
+    with_settings :personal_access_token_max_lifetime => '30' do
+      PersonalAccessToken.import_legacy_api_tokens!
+    end
+    assert_equal 30.days.from_now.to_date, PersonalAccessToken.order(:id => :desc).first.expires_on
+  end
+
   test "find_active_user should throttle last_used_on updates" do
     token = personal_access_tokens(:personal_access_tokens_001)
     recent = 5.minutes.ago

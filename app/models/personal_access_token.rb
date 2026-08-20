@@ -48,6 +48,32 @@ class PersonalAccessToken < ApplicationRecord
     [token, token.plaintext_value]
   end
 
+  # Converts legacy plaintext API keys (Token rows with action='api') into
+  # hashed personal access tokens and deletes the plaintext rows. The keys
+  # keep authenticating unchanged since lookup is done by digest. Intended
+  # to be called by the data migration of the release that removes legacy
+  # API keys (kept unit-tested here until then). Irreversible by design.
+  def self.import_legacy_api_tokens!(grace_days: nil)
+    grace_days ||= Setting.personal_access_token_max_lifetime.to_i
+    grace_days = 365 if grace_days <= 0
+
+    Token.where(:action => 'api').find_each do |legacy|
+      digest = hash_value(legacy.value)
+      next if exists?(:token_digest => digest)
+      next unless legacy.user
+
+      transaction do
+        create!(
+          :user => legacy.user,
+          :name => available_import_name(legacy.user_id),
+          :expires_on => grace_days.days.from_now.to_date,
+          :token_digest => digest
+        )
+        legacy.destroy
+      end
+    end
+  end
+
   def self.hash_value(plaintext)
     Digest::SHA256.hexdigest(plaintext)
   end
@@ -77,9 +103,22 @@ class PersonalAccessToken < ApplicationRecord
     end
   end
 
+  def self.available_import_name(user_id)
+    name = 'Migrated legacy API key'
+    i = 1
+    while exists?(:user_id => user_id, :name => name)
+      i += 1
+      name = "Migrated legacy API key #{i}"
+    end
+    name
+  end
+  private_class_method :available_import_name
+
   private
 
   def generate_value
+    return if token_digest.present?
+
     @plaintext_value = TOKEN_PREFIX + Redmine::Utils.random_hex(20)
     self.token_digest = self.class.hash_value(@plaintext_value)
   end
