@@ -38,7 +38,7 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
       user: users(:users_002), name: 'Deploy script', expires_on: 30.days.from_now.to_date
     )
     assert_equal Digest::SHA256.hexdigest(plaintext), token.token_digest
-    assert_not token.attributes.values.include?(plaintext)
+    assert_not token.attributes.value?(plaintext)
   end
 
   test "should require a name" do

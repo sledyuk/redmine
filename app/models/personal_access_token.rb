@@ -126,10 +126,9 @@ class PersonalAccessToken < ApplicationRecord
   def validate_expires_on
     return if expires_on.blank?
 
-    if expires_on < Date.today
-      errors.add(:expires_on, :invalid)
-    elsif Setting.personal_access_token_max_lifetime.to_i > 0 &&
-          expires_on > Setting.personal_access_token_max_lifetime.to_i.days.from_now.to_date
+    max_lifetime = Setting.personal_access_token_max_lifetime.to_i
+    if expires_on < Date.today ||
+       (max_lifetime > 0 && expires_on > max_lifetime.days.from_now.to_date)
       errors.add(:expires_on, :invalid)
     end
   end
