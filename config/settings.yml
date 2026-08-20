@@ -370,3 +370,5 @@ wiki_tablesort_enabled:
   default: 0
 reactions_enabled:
   default: 1
+personal_access_token_max_lifetime:
+  default: 0

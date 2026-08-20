@@ -1,0 +1,28 @@
+---
+personal_access_tokens_001:
+  id: 1
+  user_id: 2
+  name: CI pipeline
+  token_digest: <%= Digest::SHA256.hexdigest("rmpat_1234567890abcdef1234567890abcdef12345678") %>
+  expires_on: 2050-01-01
+  last_used_on:
+  created_at: 2026-08-01 10:00:00
+  updated_at: 2026-08-01 10:00:00
+personal_access_tokens_002:
+  id: 2
+  user_id: 2
+  name: Expired token
+  token_digest: <%= Digest::SHA256.hexdigest("rmpat_expired67890abcdef1234567890abcdef123456") %>
+  expires_on: 2020-01-01
+  last_used_on: 2019-12-01 10:00:00
+  created_at: 2019-01-01 10:00:00
+  updated_at: 2019-01-01 10:00:00
+personal_access_tokens_003:
+  id: 3
+  user_id: 5
+  name: Locked user token
+  token_digest: <%= Digest::SHA256.hexdigest("rmpat_locked7890abcdef1234567890abcdef12345678") %>
+  expires_on: 2050-01-01
+  last_used_on:
+  created_at: 2026-08-01 10:00:00
+  updated_at: 2026-08-01 10:00:00
