@@ -372,3 +372,5 @@ reactions_enabled:
   default: 1
 personal_access_token_max_lifetime:
   default: 0
+api_audit_logging_enabled:
+  default: 0

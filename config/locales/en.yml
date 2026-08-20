@@ -1483,3 +1483,5 @@ en:
   label_scopes_full_access: Full access
   text_personal_access_token_scopes_info: "Optionally restrict this token to selected permissions. Leaving all boxes unchecked grants the token the full permissions of your account."
   text_personal_access_token_admin_scope: Grants administrator permissions
+  setting_api_audit_logging_enabled: Enable API audit logging
+  text_api_audit_logging_info: "Writes one structured line per authenticated API request to log/api_audit.log (timestamp, user, credential, method, path, IP, response status)."

@@ -35,8 +35,8 @@ class PersonalAccessToken < ApplicationRecord
   validate :validate_expires_on
   validate :validate_scopes
 
-  before_create :generate_value
   before_save :include_public_permissions_in_scopes
+  before_create :generate_value
 
   safe_attributes 'name', 'expires_on', 'scopes'
 
