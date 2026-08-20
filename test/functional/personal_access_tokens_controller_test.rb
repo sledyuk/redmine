@@ -47,6 +47,33 @@ class PersonalAccessTokensControllerTest < Redmine::ControllerTest
     assert_select 'input[name=?]', 'personal_access_token[expires_on]'
   end
 
+  def test_new_should_display_scope_checkboxes
+    get :new
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]', 'personal_access_token[scopes][]', :minimum => 10
+    assert_select 'input[type=checkbox][name=?][value=admin]', 'personal_access_token[scopes][]'
+  end
+
+  def test_index_should_show_a_scopes_summary
+    PersonalAccessToken.find(1).update_column(:scopes, 'view_issues add_issues')
+    get :index
+    assert_response :success
+    assert_select 'tr#personal-access-token-1 td.scopes', :text => '2'
+    assert_select 'tr#personal-access-token-2 td.scopes', :text => 'Full access'
+  end
+
+  def test_create_with_scopes_should_store_them
+    post :create, :params => {
+      :personal_access_token => {
+        :name => 'Scoped token',
+        :expires_on => 30.days.from_now.to_date.to_s,
+        :scopes => ['', 'view_issues']
+      }
+    }
+    assert_redirected_to '/my/personal_access_tokens'
+    assert_includes PersonalAccessToken.order(:id => :desc).first.scope_list, :view_issues
+  end
+
   def test_create_should_add_a_token_and_show_its_value_once
     assert_difference 'PersonalAccessToken.count', 1 do
       post :create, :params => {

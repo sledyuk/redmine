@@ -130,6 +130,53 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
     assert_not_nil token.reload.last_used_on
   end
 
+  test "scope_list should return scopes as symbols" do
+    token = PersonalAccessToken.new(:scopes => 'view_issues add_issues')
+    assert_equal [:view_issues, :add_issues], token.scope_list
+    assert_equal [], PersonalAccessToken.new(:scopes => nil).scope_list
+  end
+
+  test "scopes should accept an array and normalize it" do
+    token = PersonalAccessToken.new(:scopes => ['', 'view_issues', 'admin'])
+    assert_equal 'view_issues admin', token.scopes
+  end
+
+  test "should reject unknown scope names" do
+    token = PersonalAccessToken.new(
+      :user => users(:users_002), :name => 'Bad scope',
+      :expires_on => 30.days.from_now.to_date, :scopes => 'view_issues not_a_permission'
+    )
+    assert_not token.valid?
+    assert token.errors[:scopes].present?
+  end
+
+  test "blank scopes should be valid and mean full access" do
+    token = PersonalAccessToken.new(
+      :user => users(:users_002), :name => 'Full access',
+      :expires_on => 30.days.from_now.to_date, :scopes => ''
+    )
+    assert token.valid?
+    assert_equal [], token.scope_list
+  end
+
+  test "saving a scoped token should force-include public permissions" do
+    token = PersonalAccessToken.create!(
+      :user => users(:users_002), :name => 'Scoped',
+      :expires_on => 30.days.from_now.to_date, :scopes => 'view_issues'
+    )
+    Redmine::AccessControl.public_permissions.map(&:name).each do |public_permission|
+      assert_includes token.scope_list, public_permission
+    end
+    assert_includes token.scope_list, :view_issues
+  end
+
+  test "find_active should return the token for a valid value" do
+    assert_equal personal_access_tokens(:personal_access_tokens_001),
+                 PersonalAccessToken.find_active(VALID_PLAINTEXT)
+    assert_nil PersonalAccessToken.find_active(EXPIRED_PLAINTEXT)
+    assert_nil PersonalAccessToken.find_active(LOCKED_USER_PLAINTEXT)
+  end
+
   test "import_legacy_api_tokens! should convert legacy api keys to hashed tokens" do
     user = users(:users_003)
     legacy = Token.create!(:user => user, :action => 'api')

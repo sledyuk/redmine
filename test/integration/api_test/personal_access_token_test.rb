@@ -60,6 +60,42 @@ class Redmine::ApiTest::PersonalAccessTokenTest < Redmine::ApiTest::Base
     assert_equal user.login, ActiveSupport::JSON.decode(response.body)['user']['login']
   end
 
+  test "scoped token of an admin should not grant admin-only endpoints" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: User.find(1), name: 'Scoped admin token',
+      expires_on: 30.days.from_now.to_date, scopes: 'view_issues'
+    )
+    get '/users.json', :headers => {'X-Redmine-API-Key' => plaintext}
+    assert_response :forbidden
+  end
+
+  test "unscoped token of an admin should grant admin-only endpoints" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: User.find(1), name: 'Unscoped admin token',
+      expires_on: 30.days.from_now.to_date
+    )
+    get '/users.json', :headers => {'X-Redmine-API-Key' => plaintext}
+    assert_response :success
+  end
+
+  test "scoped token should grant endpoints covered by its scopes" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: users(:users_002), name: 'Issues token',
+      expires_on: 30.days.from_now.to_date, scopes: 'view_issues'
+    )
+    get '/issues.json', :headers => {'X-Redmine-API-Key' => plaintext}
+    assert_response :success
+  end
+
+  test "scoped token should deny endpoints outside its scopes" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: users(:users_002), name: 'Issues only token',
+      expires_on: 30.days.from_now.to_date, scopes: 'view_issues'
+    )
+    get '/time_entries.json', :headers => {'X-Redmine-API-Key' => plaintext}
+    assert_response :forbidden
+  end
+
   test "should deny personal access tokens when the REST API is disabled" do
     with_settings :rest_api_enabled => '0', :login_required => '1' do
       get '/users/current.json', :headers => {'X-Redmine-API-Key' => VALID_PLAINTEXT}

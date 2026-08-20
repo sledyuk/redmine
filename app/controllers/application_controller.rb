@@ -130,7 +130,11 @@ class ApplicationController < ActionController::Base
     if user.nil? && Setting.rest_api_enabled? && accept_api_auth?
       if (key = api_key_from_request)
         # Personal access token or legacy API key
-        user = PersonalAccessToken.find_active_user(key) || User.find_by_api_key(key)
+        if (personal_access_token = PersonalAccessToken.find_active(key))
+          user = user_from_personal_access_token(personal_access_token)
+        else
+          user = User.find_by_api_key(key)
+        end
       elsif access_token = Doorkeeper.authenticate(request)
         # Oauth
         if access_token.accessible?
@@ -149,7 +153,13 @@ class ApplicationController < ActionController::Base
             return
           end
 
-          user ||= PersonalAccessToken.find_active_user(username) || User.find_by_api_key(username)
+          if user.nil?
+            if (personal_access_token = PersonalAccessToken.find_active(username))
+              user = user_from_personal_access_token(personal_access_token)
+            else
+              user = User.find_by_api_key(username)
+            end
+          end
         end
         if user && user.must_change_password?
           render_error :message => 'You must change your password', :status => 403
@@ -722,6 +732,15 @@ class ApplicationController < ActionController::Base
 
   def api_request?
     %w(xml json).include? params[:format]
+  end
+
+  # Returns the user authenticated by the given personal access token,
+  # restricted to the token's scopes when it has any (reusing the OAuth
+  # scope enforcement in User#allowed_to? and User#admin?)
+  def user_from_personal_access_token(token)
+    user = token.user
+    user.oauth_scope = token.scope_list if token.scopes.present?
+    user
   end
 
   # Returns the API key present in the request

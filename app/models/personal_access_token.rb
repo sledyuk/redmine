@@ -33,18 +33,20 @@ class PersonalAccessToken < ApplicationRecord
   validates_length_of :name, maximum: 255
   validates_uniqueness_of :name, scope: :user_id, case_sensitive: false
   validate :validate_expires_on
+  validate :validate_scopes
 
   before_create :generate_value
+  before_save :include_public_permissions_in_scopes
 
-  safe_attributes 'name', 'expires_on'
+  safe_attributes 'name', 'expires_on', 'scopes'
 
   # The plaintext value, only available on the instance that created it
   attr_reader :plaintext_value
 
   # Creates a token for +user+ and returns [record, plaintext value].
   # The plaintext value cannot be retrieved afterwards.
-  def self.generate!(user:, name:, expires_on:)
-    token = create!(user: user, name: name, expires_on: expires_on)
+  def self.generate!(user:, name:, expires_on:, scopes: nil)
+    token = create!(user: user, name: name, expires_on: expires_on, scopes: scopes)
     [token, token.plaintext_value]
   end
 
@@ -78,9 +80,9 @@ class PersonalAccessToken < ApplicationRecord
     Digest::SHA256.hexdigest(plaintext)
   end
 
-  # Returns the active user owning the given plaintext token value,
-  # or nil when the token is unknown, expired or its user is not active.
-  def self.find_active_user(plaintext)
+  # Returns the token matching the given plaintext value, or nil when the
+  # token is unknown, expired or its user is not active.
+  def self.find_active(plaintext)
     return nil if plaintext.blank?
 
     token = find_by(token_digest: hash_value(plaintext.to_s))
@@ -90,7 +92,30 @@ class PersonalAccessToken < ApplicationRecord
     return nil unless token.user&.active?
 
     token.touch_last_used_on
-    token.user
+    token
+  end
+
+  # Returns the active user owning the given plaintext token value
+  def self.find_active_user(plaintext)
+    find_active(plaintext)&.user
+  end
+
+  # Permission names a token may be restricted to, mirroring the scopes
+  # accepted for OAuth applications (all permissions plus 'admin')
+  def self.valid_scope_names
+    Redmine::AccessControl.permissions.map {|p| p.name.to_s} + ['admin']
+  end
+
+  # Accepts an array of scope names (as submitted by the form checkboxes)
+  # and stores them as a space-separated string, like OAuth scopes
+  def scopes=(value)
+    value = value.reject(&:blank?).join(' ') if value.is_a?(Array)
+    super
+  end
+
+  # Returns the scopes as an array of symbols, empty when unrestricted
+  def scope_list
+    scopes.to_s.split.map(&:to_sym)
   end
 
   def expired?
@@ -121,6 +146,22 @@ class PersonalAccessToken < ApplicationRecord
 
     @plaintext_value = TOKEN_PREFIX + Redmine::Utils.random_hex(20)
     self.token_digest = self.class.hash_value(@plaintext_value)
+  end
+
+  def validate_scopes
+    return if scopes.blank?
+
+    unknown = scope_list.map(&:to_s) - self.class.valid_scope_names
+    errors.add(:scopes, :invalid) if unknown.any?
+  end
+
+  # A restricted token must still allow what is public to everyone,
+  # mirroring Oauth2ApplicationsController#application_params
+  def include_public_permissions_in_scopes
+    if scopes.present?
+      public_names = Redmine::AccessControl.public_permissions.map {|p| p.name.to_s}
+      self.scopes = (scope_list.map(&:to_s) | public_names).join(' ')
+    end
   end
 
   def validate_expires_on
