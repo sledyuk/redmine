@@ -130,4 +130,4 @@ Built with Claude Code (Claude Fable 5) in an interactive TDD loop: codebase
 archaeology with parallel research subagents (auth-flow trace, house-conventions
 survey, migration/deprecation precedent research through git history), a design
 doc, a UI mock, then red-green commits per slice. The unedited conversation
-logs are in `doc/ai-logs/`.
+logs and a screen recording are delivered separately alongside this repository.
