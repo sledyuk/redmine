@@ -61,6 +61,18 @@ class Redmine::ApiTest::ApiAuditTest < Redmine::ApiTest::Base
     assert_equal 'api_key', last_entry['credential']
   end
 
+  test "should log denied requests" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: User.find(1), name: 'Scoped audit token',
+      expires_on: 30.days.from_now.to_date, scopes: 'view_issues'
+    )
+    with_settings :api_audit_logging_enabled => '1' do
+      get '/users.json', :headers => {'X-Redmine-API-Key' => plaintext}
+    end
+    assert_response :forbidden
+    assert_equal 403, last_entry['status']
+  end
+
   test "should not log anything when disabled" do
     with_settings :api_audit_logging_enabled => '0' do
       get '/users/current.json', :headers => {'X-Redmine-API-Key' => VALID_PLAINTEXT}

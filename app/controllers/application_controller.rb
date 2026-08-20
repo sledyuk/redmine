@@ -62,7 +62,9 @@ class ApplicationController < ActionController::Base
   end
 
   before_action :session_expiration, :user_setup, :check_if_login_required, :set_localization, :check_password_change, :check_twofa_activation
-  after_action :log_api_request
+  # Wraps the whole filter chain so that denied requests (halted by a
+  # before_action) are audited too
+  prepend_around_action :log_api_request
   after_action :record_project_usage
 
   rescue_from ::Unauthorized, :with => :deny_access
@@ -743,6 +745,12 @@ class ApplicationController < ActionController::Base
   # The request path is logged without the query string, which may carry
   # a plaintext key.
   def log_api_request
+    yield
+  ensure
+    write_api_audit_entry
+  end
+
+  def write_api_audit_entry
     return unless @api_auth_credential
     return unless Setting.api_audit_logging_enabled?
 
