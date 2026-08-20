@@ -19,7 +19,10 @@
 </p>
 
 <% if Setting.rest_api_enabled? %>
-<h4><%= l(:label_api_access_key) %></h4>
+<h4><%= l(:label_personal_access_token_plural) %></h4>
+<p><%= link_to l(:label_personal_access_token_plural), my_personal_access_tokens_path %></p>
+
+<h4><%= l(:label_api_access_key) %> <%= l(:label_legacy) %></h4>
 <div data-controller="api-key-copy">
   <div class="api-key-actions">
     <%= link_to l(:button_show), my_api_key_path, :remote => true %>

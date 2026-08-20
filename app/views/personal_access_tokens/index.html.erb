@@ -1,0 +1,53 @@
+<div class="contextual">
+  <%= link_to sprite_icon('add', l(:label_personal_access_token_new)), new_my_personal_access_token_path, :class => 'icon icon-add' %>
+</div>
+
+<%= title [l(:label_my_account), my_account_path], l(:label_personal_access_token_plural) %>
+
+<p><%= l(:text_personal_access_tokens_info) %></p>
+
+<% if @new_token_value %>
+<div class="box">
+  <p><strong><%= l(:text_personal_access_token_show_once) %></strong></p>
+  <pre class="personal-access-token-value"><%= @new_token_value %></pre>
+</div>
+<% end %>
+
+<% if @tokens.any? %>
+<div class="autoscroll">
+<table class="list">
+  <thead>
+    <tr>
+      <th class="name"><%= l(:field_name) %></th>
+      <th><%= l(:field_created_on) %></th>
+      <th><%= l(:field_expires_on) %></th>
+      <th><%= l(:label_last_used_on) %></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  <% @tokens.each do |token| %>
+    <tr id="personal-access-token-<%= token.id %>" class="<%= cycle('odd', 'even') %>">
+      <td class="name"><%= token.name %></td>
+      <td><%= format_date(token.created_at) %></td>
+      <td>
+        <%= format_date(token.expires_on) %>
+        <% if token.expired? %>(<%= l(:label_token_expired) %>)<% end %>
+      </td>
+      <td><%= token.last_used_on ? time_tag(token.last_used_on) : l(:label_token_never_used) %></td>
+      <td class="buttons">
+        <%= delete_link my_personal_access_token_path(token), {}, l(token.expired? ? :button_delete : :button_revoke) %>
+      </td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>
+</div>
+<% else %>
+<p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>
+
+<% content_for :sidebar do %>
+<% @user = User.current %>
+<%= render :partial => 'my/sidebar' %>
+<% end %>

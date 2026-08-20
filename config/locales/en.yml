@@ -1462,3 +1462,20 @@ en:
   reaction_text_x_other_users:
     one: "1 other"
     other: "%{count} others"
+  label_personal_access_token: Personal access token
+  label_personal_access_token_plural: Personal access tokens
+  label_personal_access_token_new: New token
+  field_expires_on: Expires
+  label_last_used_on: Last used
+  label_token_never_used: never
+  label_token_expired: expired
+  label_legacy: (legacy)
+  button_revoke: Revoke
+  notice_personal_access_token_created: "Personal access token %{name} was created."
+  text_personal_access_token_show_once: "Copy your new token now. For security reasons it is stored hashed and cannot be displayed again."
+  text_personal_access_tokens_info: "Personal access tokens can be used instead of your API access key to authenticate against the REST API. Each token has its own expiration date and can be revoked individually. The token value is only displayed once, at creation."
+  text_personal_access_token_name_info: "A short label so you can recognize this token later, e.g. \"CI pipeline\"."
+  text_personal_access_token_expiration_info: "Defaults to %{days} days."
+  text_personal_access_token_max_lifetime_info: "Maximum lifetime allowed by the administrator: %{max} days."
+  setting_personal_access_token_max_lifetime: Maximum lifetime of personal access tokens (days)
+  text_personal_access_token_max_lifetime_setting_info: "Upper bound for the expiration date of newly created personal access tokens, in days. 0 means no limit. Existing tokens are not affected."

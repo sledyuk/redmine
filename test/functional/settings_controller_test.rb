@@ -80,6 +80,12 @@ class SettingsControllerTest < Redmine::ControllerTest
     assert_equal 'Test footer', Setting.emails_footer
   end
 
+  def test_edit_api_tab_should_include_personal_access_token_max_lifetime
+    get :edit, :params => {:tab => 'api'}
+    assert_response :success
+    assert_select 'input[name=?]', 'settings[personal_access_token_max_lifetime]'
+  end
+
   def test_edit_commit_update_keywords
     with_settings :commit_update_keywords => [
       {"keywords" => "fixes, resolves", "status_id" => "3"},

@@ -18,6 +18,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class PersonalAccessToken < ApplicationRecord
+  include Redmine::SafeAttributes
+
   belongs_to :user
 
   # Plaintext token values are "rmpat_" followed by 40 hex characters.
@@ -32,15 +34,18 @@ class PersonalAccessToken < ApplicationRecord
   validates_uniqueness_of :name, scope: :user_id, case_sensitive: false
   validate :validate_expires_on
 
+  before_create :generate_value
+
+  safe_attributes 'name', 'expires_on'
+
+  # The plaintext value, only available on the instance that created it
+  attr_reader :plaintext_value
+
   # Creates a token for +user+ and returns [record, plaintext value].
   # The plaintext value cannot be retrieved afterwards.
   def self.generate!(user:, name:, expires_on:)
-    plaintext = TOKEN_PREFIX + Redmine::Utils.random_hex(20)
-    token = create!(
-      user: user, name: name, expires_on: expires_on,
-      token_digest: hash_value(plaintext)
-    )
-    [token, plaintext]
+    token = create!(user: user, name: name, expires_on: expires_on)
+    [token, token.plaintext_value]
   end
 
   def self.hash_value(plaintext)
@@ -73,6 +78,11 @@ class PersonalAccessToken < ApplicationRecord
   end
 
   private
+
+  def generate_value
+    @plaintext_value = TOKEN_PREFIX + Redmine::Utils.random_hex(20)
+    self.token_digest = self.class.hash_value(@plaintext_value)
+  end
 
   def validate_expires_on
     return if expires_on.blank?
