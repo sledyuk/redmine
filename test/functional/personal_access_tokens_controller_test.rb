@@ -74,6 +74,15 @@ class PersonalAccessTokensControllerTest < Redmine::ControllerTest
     assert_includes PersonalAccessToken.order(:id => :desc).first.scope_list, :view_issues
   end
 
+  def test_new_should_clamp_the_default_expiration_to_the_max_lifetime
+    with_settings :personal_access_token_max_lifetime => '7' do
+      get :new
+      assert_response :success
+      assert_select 'input[name=?][value=?]', 'personal_access_token[expires_on]',
+                    7.days.from_now.to_date.to_s
+    end
+  end
+
   def test_create_should_add_a_token_and_show_its_value_once
     assert_difference 'PersonalAccessToken.count', 1 do
       post :create, :params => {

@@ -766,6 +766,11 @@ class ApplicationController < ActionController::Base
       'ip' => request.remote_ip,
       'status' => status
     )
+  rescue => e
+    # Audit logging must degrade silently: a full disk or unwritable log
+    # directory should not turn into API failures (we run inside an ensure,
+    # so raising here would also mask the original response or exception)
+    logger&.error("Unable to write API audit entry: #{e.class}: #{e.message}")
   end
 
   # Returns the user authenticated by the given personal access token,

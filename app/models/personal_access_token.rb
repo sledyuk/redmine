@@ -31,7 +31,7 @@ class PersonalAccessToken < ApplicationRecord
 
   validates_presence_of :name, :expires_on
   validates_length_of :name, maximum: 255
-  validates_uniqueness_of :name, scope: :user_id, case_sensitive: false
+  validates_uniqueness_of :name, scope: :user_id, case_sensitive: true
   validate :validate_expires_on
   validate :validate_scopes
 

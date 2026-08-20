@@ -91,6 +91,13 @@ class PersonalAccessTokenTest < ActiveSupport::TestCase
     end
   end
 
+  test "max lifetime setting should only accept integers" do
+    setting = Setting.new(:name => 'personal_access_token_max_lifetime', :value => 'abc')
+    assert_not setting.valid?
+    setting.value = '30'
+    assert setting.valid?
+  end
+
   test "should not limit lifetime when the setting is zero" do
     with_settings :personal_access_token_max_lifetime => '0' do
       token = PersonalAccessToken.new(

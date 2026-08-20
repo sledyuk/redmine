@@ -90,6 +90,14 @@ class Redmine::ApiTest::ApiAuditTest < Redmine::ApiTest::Base
     assert_equal 500, last_entry['status']
   end
 
+  test "an audit logging failure should not break the API response" do
+    Redmine::ApiAudit.stubs(:log).raises(Errno::ENOSPC.new('disk full'))
+    with_settings :api_audit_logging_enabled => '1' do
+      get '/users/current.json', :headers => {'X-Redmine-API-Key' => VALID_PLAINTEXT}
+    end
+    assert_response :success
+  end
+
   test "should never log the token value" do
     with_settings :api_audit_logging_enabled => '1' do
       get "/users/current.json?key=#{VALID_PLAINTEXT}"

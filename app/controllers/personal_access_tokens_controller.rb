@@ -32,8 +32,10 @@ class PersonalAccessTokensController < ApplicationController
     flash.delete(:personal_access_token_value)
   end
 
+  helper_method :default_expiration_days
+
   def new
-    @token = PersonalAccessToken.new(:expires_on => 30.days.from_now.to_date)
+    @token = PersonalAccessToken.new(:expires_on => default_expiration_days.days.from_now.to_date)
   end
 
   def create
@@ -55,6 +57,13 @@ class PersonalAccessTokensController < ApplicationController
   end
 
   private
+
+  # Default expiration offered by the form, clamped to the admin
+  # max-lifetime policy so the prefilled date is always valid
+  def default_expiration_days
+    max = Setting.personal_access_token_max_lifetime.to_i
+    max > 0 ? [30, max].min : 30
+  end
 
   def find_token
     @token = User.current.personal_access_tokens.find(params[:id])

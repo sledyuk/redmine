@@ -12,7 +12,7 @@
     <p>
       <%= f.date_field :expires_on, :required => true %>
       <em class="info">
-        <%= l(:text_personal_access_token_expiration_info, :days => 30) %>
+        <%= l(:text_personal_access_token_expiration_info, :days => default_expiration_days) %>
         <% if Setting.personal_access_token_max_lifetime.to_i > 0 %>
           <%= l(:text_personal_access_token_max_lifetime_info, :max => Setting.personal_access_token_max_lifetime.to_i) %>
         <% end %>
