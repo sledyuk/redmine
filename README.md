@@ -61,6 +61,10 @@ silently invalidates the old one, so key rotation breaks every other integration
   give per-operation restriction.
 - **CORS** — needs the `rack-cors` dependency; a Gemfile addition is a poor
   fit for a focused MR.
+- **Admin panel for all users' tokens** — pillar 1 of the ticket also asks
+  for a dedicated Administration view over every user's tokens. Deferred:
+  the self-service core plus the admin lifetime policy stand alone, and the
+  panel is additive UI that fits a follow-up patch.
 - **Legacy key deprecation/backfill** — this MR is deliberately additive.
   The conversion method `PersonalAccessToken.import_legacy_api_tokens!` ships
   fully unit-tested (legacy plaintext values are hashable server-side, so keys
@@ -81,6 +85,24 @@ silently invalidates the old one, so key rotation breaks every other integration
   unique-index lookup. Same trade-off Doorkeeper makes.
 - Scopes are permission-name scopes (plus `admin`), not per-project
   restrictions.
+- **Known scope limitation, inherited from the OAuth mechanism** (open
+  upstream defect [#44271](https://www.redmine.org/issues/44271)): issue
+  attribute editing authorizes through the private
+  `Issue#user_tracker_permission?`, which reads roles directly and never
+  calls `User#allowed_to?`, so the scope intersection is bypassed there. A
+  token scoped to `view_issues add_issue_notes` can still edit issue
+  attributes when the user's role allows it. Since PAT scopes deliberately
+  reuse the OAuth enforcement path, they inherit this defect — and will
+  inherit its fix. Pinned by a dedicated test
+  (`KNOWN LIMITATION (#44271)` in
+  `test/integration/api_test/personal_access_token_test.rb`) that will fail
+  when the upstream fix lands.
+- **Credential lifecycle**: changing the password (or an admin resetting it)
+  does **not** revoke personal access tokens — matching both the legacy API
+  key and GitHub's PAT behavior (`User#destroy_tokens` clears only
+  `recovery`/`autologin`/`session` tokens). Locking the account cuts off all
+  its tokens immediately via the `user.active?` check in
+  `PersonalAccessToken.find_active`.
 - The one-time value travels one redirect through the Rails session flash
   (and is removed from it before the generic flash rendering).
 

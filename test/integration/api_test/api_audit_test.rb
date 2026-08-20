@@ -81,6 +81,15 @@ class Redmine::ApiTest::ApiAuditTest < Redmine::ApiTest::Base
     assert_equal '', @io.string
   end
 
+  test "should log status 500 when the action raises" do
+    UsersController.any_instance.stubs(:show).raises(StandardError.new('boom'))
+    with_settings :api_audit_logging_enabled => '1' do
+      get '/users/current.json', :headers => {'X-Redmine-API-Key' => VALID_PLAINTEXT}
+    end
+    assert_response :internal_server_error
+    assert_equal 500, last_entry['status']
+  end
+
   test "should never log the token value" do
     with_settings :api_audit_logging_enabled => '1' do
       get "/users/current.json?key=#{VALID_PLAINTEXT}"

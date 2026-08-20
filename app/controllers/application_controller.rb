@@ -747,10 +747,12 @@ class ApplicationController < ActionController::Base
   def log_api_request
     yield
   ensure
-    write_api_audit_entry
+    # When an exception is in flight the client will receive a 500 from the
+    # exception-handling middleware, not the status currently on response
+    write_api_audit_entry($! ? 500 : response.status)
   end
 
-  def write_api_audit_entry
+  def write_api_audit_entry(status)
     return unless @api_auth_credential
     return unless Setting.api_audit_logging_enabled?
 
@@ -762,7 +764,7 @@ class ApplicationController < ActionController::Base
       'method' => request.request_method,
       'path' => request.path,
       'ip' => request.remote_ip,
-      'status' => response.status
+      'status' => status
     )
   end
 

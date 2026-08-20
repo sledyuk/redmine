@@ -82,12 +82,20 @@ class PersonalAccessToken < ApplicationRecord
 
   # Returns the token matching the given plaintext value, or nil when the
   # token is unknown, expired or its user is not active.
+  #
+  # Equality lookup on the digest is sufficient here: the digest is computed
+  # server-side from the presented value, so there is no user-controlled
+  # stored value that a case-insensitive collation could mis-match (unlike
+  # Token.find_token, which re-checks with secure_compare for that reason),
+  # and a timing side channel would only compare two SHA256 digests.
+  #
+  # Note: this finder deliberately writes (throttled last_used_on tracking) -
+  # authenticating a request is the usage being recorded.
   def self.find_active(plaintext)
     return nil if plaintext.blank?
 
     token = find_by(token_digest: hash_value(plaintext.to_s))
     return nil unless token
-    return nil unless ActiveSupport::SecurityUtils.secure_compare(token.token_digest, hash_value(plaintext.to_s))
     return nil if token.expired?
     return nil unless token.user&.active?
 

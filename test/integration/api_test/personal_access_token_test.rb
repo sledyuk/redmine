@@ -96,6 +96,28 @@ class Redmine::ApiTest::PersonalAccessTokenTest < Redmine::ApiTest::Base
     assert_response :forbidden
   end
 
+  # Known limitation inherited from the OAuth scope mechanism (upstream
+  # defect https://www.redmine.org/issues/44271): Issue#attributes_editable?
+  # authorizes through the private Issue#user_tracker_permission?, which
+  # selects roles directly and never calls User#allowed_to?, so the scope
+  # intersection is bypassed for issue attribute mutations. A token scoped
+  # to view_issues + add_issue_notes (a typical comment-bot token) can
+  # therefore still edit issue attributes when the user's role allows it,
+  # because add_issue_notes maps to issues#update and passes the controller
+  # authorize. This test pins the current behavior and will start failing
+  # once #44271 is fixed upstream - update it then.
+  test "KNOWN LIMITATION (#44271): add_issue_notes scope does not prevent issue attribute edits" do
+    _token, plaintext = PersonalAccessToken.generate!(
+      user: users(:users_002), name: 'Notes-only token',
+      expires_on: 30.days.from_now.to_date, scopes: 'view_issues add_issue_notes'
+    )
+    put '/issues/1.json',
+        :params => {:issue => {:subject => 'Changed through a notes-only token'}},
+        :headers => {'X-Redmine-API-Key' => plaintext}
+    assert_response :no_content
+    assert_equal 'Changed through a notes-only token', Issue.find(1).subject
+  end
+
   test "should deny personal access tokens when the REST API is disabled" do
     with_settings :rest_api_enabled => '0', :login_required => '1' do
       get '/users/current.json', :headers => {'X-Redmine-API-Key' => VALID_PLAINTEXT}
